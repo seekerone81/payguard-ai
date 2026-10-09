@@ -219,3 +219,51 @@ without a substantial security, reliability, compliance, and deployment review.
 ## License
 
 This project is released under the MIT License. See [LICENSE](LICENSE) for the full license text.
+
+## Screenshots
+
+PayGuard AI is a hackathon prototype that uses a local sample
+catalog and PayPal Sandbox to demonstrate AI-assisted purchase
+authorization.
+
+### 1. Dashboard Themes
+
+#### Minimalist
+![PayGuard AI Minimalist Dashboard](docs/screenshots/dashboard-minimalist.png)
+
+#### Premium Fintech
+![PayGuard AI Premium Fintech Dashboard](docs/screenshots/dashboard-fintech.png)
+
+#### Aurora Glass
+![PayGuard AI Aurora Glass Dashboard](docs/screenshots/dashboard-aurora.png)
+
+### 2. Purchase Authorization
+
+This view demonstrates the authorization details extracted from
+the user's purchase request, including the spending limit,
+quantity, shipping allowance, and recurring-payment restriction.
+
+![PayGuard AI Authorization Details](docs/screenshots/authorization.png)
+
+### 3. Product Comparison
+
+PayGuard AI compares sample products against the user's budget
+before allowing the user to continue.
+
+![PayGuard AI Product Comparison](docs/screenshots/product-comparison.png)
+
+### 4. Policy Evaluation and PayPal Sandbox
+
+The application evaluates authorization rules before creating
+a PayPal Sandbox order. Order creation is not the same as
+payment completion; the buyer must still approve the order.
+
+![PayGuard AI Policy Checks](docs/screenshots/policy-checks.png)
+
+### 5. Transaction History and Audit Trail
+
+The local audit history records transaction decisions and
+their PayPal statuses. It is a prototype audit log, not a
+tamper-resistant production ledger.
+
+![PayGuard AI Transaction History](docs/screenshots/transaction-history.png)
