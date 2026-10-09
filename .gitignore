@@ -1,0 +1,36 @@
+# Python virtual environment
+.venv/
+venv/
+
+# Python cache and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local SQLite database
+*.db
+*.db-shm
+*.db-wal
+
+# Node.js dependencies
+node_modules/
+frontend/node_modules/
+
+# Generated frontend and build files
+dist/
+frontend/dist/
+build/
+
+# Logs
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
