@@ -1,4 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
+import {
+  Activity,
+  ArrowUpRight,
+  CheckCircle2,
+  CircleDollarSign,
+  Clock,
+  Headphones,
+  Mouse,
+  Notebook,
+  Palette,
+  Search,
+  ShieldAlert,
+  WalletCards,
+} from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
 import './App.css'
 
 const DEFAULT_REQUEST =
@@ -25,8 +40,87 @@ function dateText(value) {
     : date.toLocaleString()
 }
 
+
+function PolicyChecks({ checks }) {
+  if (!Array.isArray(checks) || checks.length === 0) {
+    return null
+  }
+
+  return (
+    <motion.div
+      className="policy-check-panel"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="policy-check-heading">
+        <span className="policy-check-heading-icon">
+          <Activity size={19} aria-hidden="true" />
+        </span>
+        <div>
+          <h3>Policy evaluation</h3>
+          <p>Deterministic authorization checks</p>
+        </div>
+      </div>
+
+      <ul className="policy-check-list">
+        {checks.map((check, index) => {
+          const upper = String(check).toUpperCase()
+          const failed = upper.includes("FAIL")
+          const passed = upper.includes("PASS")
+          const state = failed ? "fail" : passed ? "pass" : "info"
+
+          return (
+            <motion.li
+              key={`${index}-${check}`}
+              className={`policy-check-row ${state}`}
+              initial={{ opacity: 0, x: -7 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.22, delay: index * 0.035 }}
+            >
+              <span className="policy-check-row-icon">
+                {failed ? (
+                  <ShieldAlert size={17} aria-hidden="true" />
+                ) : passed ? (
+                  <CheckCircle2 size={17} aria-hidden="true" />
+                ) : (
+                  <Activity size={17} aria-hidden="true" />
+                )}
+              </span>
+
+              <span className="policy-check-text">{check}</span>
+
+              <strong className="policy-check-state">
+                {failed ? "FAIL" : passed ? "PASS" : "INFO"}
+              </strong>
+            </motion.li>
+          )
+        })}
+      </ul>
+    </motion.div>
+  )
+}
+
 export default function App() {
   const [request, setRequest] = useState(DEFAULT_REQUEST)
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('payguard-ai-theme')
+      return ['minimalist', 'fintech', 'aurora'].includes(saved)
+        ? saved
+        : 'fintech'
+    } catch {
+      return 'fintech'
+    }
+  })
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('payguard-ai-theme', theme)
+    } catch {
+      // Continue working if browser storage is unavailable.
+    }
+  }, [theme])
   const [proposal, setProposal] = useState(null)
   const [checkout, setCheckout] = useState(null)
   const [history, setHistory] = useState([])
@@ -34,11 +128,11 @@ export default function App() {
   const [workingId, setWorkingId] = useState(null)
   const [error, setError] = useState('')
   const [historyError, setHistoryError] = useState('')
+  const [historyFilter, setHistoryFilter] = useState('all')
+  const [historyQuery, setHistoryQuery] = useState('')
 
   const loadHistory = useCallback(async () => {
     try {
-      setHistoryError('')
-
       const response = await fetch('/api/history')
       const data = await response.json()
 
@@ -46,6 +140,7 @@ export default function App() {
         throw new Error(data.detail || 'Could not load history')
       }
 
+      setHistoryError('')
       setHistory(data.entries || [])
     } catch (err) {
       setHistoryError(err.message)
@@ -53,7 +148,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    loadHistory()
+    const timerId = window.setTimeout(() => {
+      void loadHistory()
+    }, 0)
+
+    return () => window.clearTimeout(timerId)
   }, [loadHistory])
 
   async function analyze(event) {
@@ -122,22 +221,85 @@ export default function App() {
 
   const intent = proposal?.intent
 
+  const completedCount = history.filter(
+    (entry) =>
+      entry.decision === 'PAYMENT_COMPLETED' ||
+      entry.paypal_status === 'COMPLETED',
+  ).length
+
+  const blockedCount = history.filter(
+    (entry) => entry.decision === 'BLOCKED',
+  ).length
+
+  const filteredHistory = history.filter((entry) => {
+    const isBlocked = entry.decision === 'BLOCKED'
+    const isCompleted =
+      entry.decision === 'PAYMENT_COMPLETED' ||
+      entry.paypal_status === 'COMPLETED'
+
+    const matchesFilter =
+      historyFilter === 'all' ||
+      (historyFilter === 'blocked' && isBlocked) ||
+      (historyFilter === 'completed' && isCompleted) ||
+      (historyFilter === 'pending' && !isBlocked && !isCompleted)
+
+    const searchText = [
+      entry.product_name,
+      entry.product_id,
+      entry.paypal_order_id,
+      entry.decision,
+      entry.reason,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+
+    return matchesFilter && searchText.includes(historyQuery.toLowerCase())
+  })
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell theme-${theme}`}>
       <header className="topbar">
         <a className="brand" href="/">
           <span className="brand-icon">P</span>
           <span>PayGuard<span className="brand-light"> AI</span></span>
         </a>
 
-        <div className="header-status">
-          <span className="status-dot" />
-          Sandbox environment
+        <nav className="primary-nav" aria-label="Main navigation">
+          <a href="#overview">Overview</a>
+          <a href="#purchase">Purchase</a>
+          <a href="#history">Activity</a>
+        </nav>
+
+        <div className="header-actions">
+          <div className="header-status">
+            <span className="status-dot" />
+            Sandbox environment
+          </div>
+
+          <label className="theme-control">
+            <Palette size={17} aria-hidden="true" />
+            <span className="theme-control-caption">Appearance</span>
+            <select
+              aria-label="Choose appearance theme"
+              value={theme}
+              onChange={(event) => setTheme(event.target.value)}
+            >
+              <option value="minimalist">Minimalist</option>
+              <option value="fintech">Premium Fintech</option>
+              <option value="aurora">Aurora Glass</option>
+            </select>
+          </label>
         </div>
       </header>
 
       <main className="main-content">
-        <section className="hero">
+        <motion.section
+          className="hero"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+        >
           <div className="eyebrow">
             AI-POWERED PAYMENT PROTECTION
           </div>
@@ -159,9 +321,173 @@ export default function App() {
             <span>Independent policy checks</span>
             <span>PayPal Sandbox checkout</span>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="request-card">
+        <motion.section
+          className="overview-section"
+          id="overview"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.08 }}
+        >
+          <div className="overview-heading">
+            <div>
+              <span className="step-label">YOUR WORKSPACE</span>
+              <h2>Authorization overview</h2>
+              <p>Transaction activity from your local audit history.</p>
+            </div>
+
+            <a className="overview-link" href="#history">
+              View activity <ArrowUpRight size={16} aria-hidden="true" />
+            </a>
+          </div>
+
+          <div className="overview-grid">
+            <motion.article
+              className="overview-stat"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.10 }}
+            >
+              <div className="overview-stat-top">
+                <span className="overview-stat-icon">
+                  <WalletCards size={19} aria-hidden="true" />
+                </span>
+                <span className="overview-stat-label">Recorded attempts</span>
+              </div>
+              <strong className="overview-stat-value">{history.length}</strong>
+              <p className="overview-stat-note">Checkout attempts in local history</p>
+            </motion.article>
+
+            <motion.article
+              className="overview-stat"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.16 }}
+            >
+              <div className="overview-stat-top">
+                <span className="overview-stat-icon success">
+                  <CheckCircle2 size={19} aria-hidden="true" />
+                </span>
+                <span className="overview-stat-label">Completed</span>
+              </div>
+              <strong className="overview-stat-value">{completedCount}</strong>
+              <p className="overview-stat-note">Sandbox payments marked completed</p>
+            </motion.article>
+
+            <motion.article
+              className="overview-stat"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.22 }}
+            >
+              <div className="overview-stat-top">
+                <span className="overview-stat-icon danger">
+                  <ShieldAlert size={19} aria-hidden="true" />
+                </span>
+                <span className="overview-stat-label">Blocked</span>
+              </div>
+              <strong className="overview-stat-value">{blockedCount}</strong>
+              <p className="overview-stat-note">Attempts rejected by policy</p>
+            </motion.article>
+
+            <motion.article
+              className="overview-stat"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.28 }}
+            >
+              <div className="overview-stat-top">
+                <span className="overview-stat-icon value">
+                  <CircleDollarSign size={19} aria-hidden="true" />
+                </span>
+                <span className="overview-stat-label">Completed value · USD</span>
+              </div>
+              <strong className="overview-stat-value">
+                {money(
+                  history
+                    .filter(
+                      (entry) =>
+                        entry.currency === 'USD' &&
+                        (entry.decision === 'PAYMENT_COMPLETED' ||
+                          entry.paypal_status === 'COMPLETED'),
+                    )
+                    .reduce((total, entry) => total + Number(entry.total || 0), 0),
+                  'USD',
+                )}
+              </strong>
+              <p className="overview-stat-note">Recorded completed Sandbox orders</p>
+            </motion.article>
+          </div>
+        </motion.section>
+
+        <motion.nav
+          className="purchase-stepper"
+          aria-label="Purchase progress"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.12 }}
+        >
+          <div className={`purchase-step ${proposal ? 'is-complete' : 'is-current'}`}>
+            <span className="purchase-step-number">
+              {proposal ? '✓' : '01'}
+            </span>
+            <span className="purchase-step-copy">
+              <strong>Describe</strong>
+              <small>Purchase request</small>
+            </span>
+          </div>
+
+          <div className={`purchase-step ${proposal ? 'is-complete' : ''}`}>
+            <span className="purchase-step-number">
+              {proposal ? '✓' : '02'}
+            </span>
+            <span className="purchase-step-copy">
+              <strong>Authorization</strong>
+              <small>Review your limits</small>
+            </span>
+          </div>
+
+          <div className={`purchase-step ${
+            checkout
+              ? 'is-complete'
+              : proposal
+                ? 'is-current'
+                : ''
+          }`}>
+            <span className="purchase-step-number">
+              {checkout ? '✓' : '03'}
+            </span>
+            <span className="purchase-step-copy">
+              <strong>Product</strong>
+              <small>Compare options</small>
+            </span>
+          </div>
+
+          <div className={`purchase-step ${
+            checkout
+              ? checkout.payment_created
+                ? 'is-current'
+                : 'is-blocked'
+              : ''
+          }`}>
+            <span className="purchase-step-number">04</span>
+            <span className="purchase-step-copy">
+              <strong>
+                {checkout && !checkout.payment_created
+                  ? 'Blocked'
+                  : 'PayPal approval'}
+              </strong>
+              <small>
+                {checkout && !checkout.payment_created
+                  ? 'Policy rejected the request'
+                  : 'Review before approving'}
+              </small>
+            </span>
+          </div>
+        </motion.nav>
+
+        <section className="request-card" id="purchase">
           <div className="section-heading">
             <div>
               <span className="step-label">STEP 01</span>
@@ -301,18 +627,54 @@ export default function App() {
                       subscriptionSupported
 
                     return (
-                      <article
+                      <motion.article
                         className="product-card"
                         key={product.id}
+                        layout
+                        initial={{ opacity: 0, y: 18, scale: 0.985 }}
+                        whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                        viewport={{ once: true, amount: 0.18 }}
+                        whileHover={{ y: -5 }}
+                        transition={{ duration: 0.28, ease: 'easeOut' }}
                       >
                         <div className="product-visual">
-                          <span className="product-symbol">
-                            {product.category === 'headphones'
-                              ? '♫'
-                              : product.category === 'notebooks'
-                                ? '▤'
-                                : '⌁'}
-                          </span>
+                          <div className="product-artwork">
+                            <div className="product-artwork-icon">
+                              {product.category === 'headphones' ? (
+                                <Headphones
+                                  size={34}
+                                  strokeWidth={1.6}
+                                  aria-hidden="true"
+                                />
+                              ) : product.category === 'notebooks' ? (
+                                <Notebook
+                                  size={34}
+                                  strokeWidth={1.6}
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <Mouse
+                                  size={34}
+                                  strokeWidth={1.6}
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </div>
+
+                            <div className="product-artwork-copy">
+                              <span className="product-artwork-kicker">
+                                CURATED FOR YOUR REQUEST
+                              </span>
+                              <strong>
+                                {product.category === 'headphones'
+                                  ? 'Study essentials'
+                                  : product.category === 'notebooks'
+                                    ? 'Everyday stationery'
+                                    : 'Desk setup'}
+                              </strong>
+                              <small>Sample catalog · Sandbox demo</small>
+                            </div>
+                          </div>
 
                           <span
                             className={
@@ -409,7 +771,7 @@ export default function App() {
                                 : 'Not authorized'}
                           </button>
                         </div>
-                      </article>
+                      </motion.article>
                     )
                   })}
                 </div>
@@ -422,16 +784,18 @@ export default function App() {
           <section className="checkout-result">
             {checkout.payment_created ? (
               <>
-                <div className="result-icon success-icon">OK</div>
+                <div className="result-icon pending-icon"><Clock size={25} aria-hidden="true" /></div>
                 <span className="step-label">
-                  POLICY CHECK PASSED
+                  ORDER CREATED · APPROVAL REQUIRED
                 </span>
 
-                <h2>PayPal order is ready</h2>
+                <h2>Order created — approval required</h2>
 
                 <p>
-                  PayGuard authorized this purchase and created a
-                  Sandbox order. Review it before approving.
+                  Your purchase passed PayGuard's policy checks, and a
+                  PayPal Sandbox order has been created. The payment is
+                  not complete yet. Continue to PayPal to review and
+                  approve the order.
                 </p>
 
                 <div className="order-details">
@@ -442,6 +806,8 @@ export default function App() {
                   <span>Audit record</span>
                   <strong>{checkout.audit_id ?? 'Not returned'}</strong>
                 </div>
+
+                <PolicyChecks checks={checkout.decision?.checks} />
 
                 {checkout.paypal?.approve_url && (
                   <a
@@ -469,12 +835,13 @@ export default function App() {
                   No PayPal order was created for this attempt.
                   Audit record: {checkout.audit_id ?? 'Not returned'}.
                 </div>
+                <PolicyChecks checks={checkout.decision?.checks} />
               </>
             )}
           </section>
         )}
 
-        <section className="history-section">
+        <section className="history-section" id="history">
           <div className="section-heading">
             <div>
               <span className="step-label">AUDIT TRAIL</span>
@@ -490,9 +857,40 @@ export default function App() {
           </div>
 
           <p className="history-description">
-            Review recent recorded checkout attempts and their
-            authorization decisions.
+            Search recorded attempts and filter by the authorization outcome.
           </p>
+
+          <div className="history-toolbar">
+            <label className="history-search">
+              <Search size={17} aria-hidden="true" />
+              <span className="sr-only">Search transaction history</span>
+              <input
+                type="search"
+                value={historyQuery}
+                onChange={(event) => setHistoryQuery(event.target.value)}
+                placeholder="Search products, decisions, or order IDs"
+              />
+            </label>
+
+            <div className="history-filters" aria-label="Filter transaction history">
+              {[
+                ['all', 'All'],
+                ['completed', 'Completed'],
+                ['blocked', 'Blocked'],
+                ['pending', 'Other'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`history-filter ${historyFilter === value ? 'active' : ''}`}
+                  aria-pressed={historyFilter === value}
+                  onClick={() => setHistoryFilter(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {historyError && (
             <div className="message error-message">
@@ -510,17 +908,32 @@ export default function App() {
             </div>
           )}
 
-          {history.length > 0 && (
+          {history.length > 0 && filteredHistory.length > 0 && (
             <div className="history-list">
-              {history.map((entry) => {
+              <AnimatePresence initial={false}>
+              {filteredHistory.map((entry) => {
                 const blocked = entry.decision === 'BLOCKED'
 
                 const completed =
                   entry.decision === 'PAYMENT_COMPLETED' ||
                   entry.paypal_status === 'COMPLETED'
 
+                const awaitingApproval =
+                  !blocked &&
+                  !completed &&
+                  entry.paypal_status === 'CREATED' &&
+                  Boolean(entry.paypal_order_id)
+
                 return (
-                  <article className="history-item" key={entry.id}>
+                  <motion.article
+                    className="history-item"
+                    key={entry.id}
+                    layout
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.22, ease: 'easeOut' }}
+                  >
                     <div className="history-main">
                       <div>
                         <h3>{entry.product_name}</h3>
@@ -534,7 +947,9 @@ export default function App() {
                           blocked
                             ? 'history-badge history-blocked'
                             : completed
-                              ? 'history-badge history-completed'
+                            ? 'history-badge history-completed'
+                            : awaitingApproval
+                              ? 'history-badge history-awaiting-approval'
                               : 'history-badge history-pending'
                         }
                       >
@@ -542,7 +957,9 @@ export default function App() {
                           ? 'BLOCKED'
                           : completed
                             ? 'COMPLETED'
-                            : entry.decision}
+                            : awaitingApproval
+                              ? 'AWAITING APPROVAL'
+                              : entry.decision}
                       </span>
                     </div>
 
@@ -575,9 +992,27 @@ export default function App() {
                         {entry.paypal_order_id}
                       </p>
                     )}
-                  </article>
+                  </motion.article>
                 )
               })}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {history.length > 0 && filteredHistory.length === 0 && (
+            <div className="filtered-empty">
+              <Activity size={22} aria-hidden="true" />
+              <h3>No matching transactions</h3>
+              <p>Try another search or clear the current filters.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryQuery('')
+                  setHistoryFilter('all')
+                }}
+              >
+                Clear filters
+              </button>
             </div>
           )}
 
